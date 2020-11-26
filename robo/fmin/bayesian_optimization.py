@@ -1,18 +1,23 @@
 import logging
 import george
 import numpy as np
+import inspect
 
+from pybnn import BaseModel
 from pybnn.dngo import DNGO
 
 from robo.priors.default_priors import DefaultPrior
+from robo.models.base_model import BaseModel as BaseModel_
 from robo.models.wrapper_bohamiann import WrapperBohamiann
 from robo.models.gaussian_process import GaussianProcess
 from robo.models.gaussian_process_mcmc import GaussianProcessMCMC
 from robo.models.random_forest import RandomForest
+from robo.maximizers.base_maximizer import BaseMaximizer
 from robo.maximizers.scipy_optimizer import SciPyOptimizer
 from robo.maximizers.random_sampling import RandomSampling
 from robo.maximizers.differential_evolution import DifferentialEvolution
 from robo.solver.bayesian_optimization import BayesianOptimization
+from robo.acquisition_functions.base_acquisition import BaseAcquisitionFunction
 from robo.acquisition_functions.ei import EI
 from robo.acquisition_functions.pi import PI
 from robo.acquisition_functions.log_ei import LogEI
@@ -108,6 +113,12 @@ def bayesian_optimization(objective_function, lower, upper, num_iterations=30, X
     elif model_type == "dngo":
         model = DNGO()
 
+    elif isinstance(model_type, (BaseModel, BaseModel_)):
+        model = model_type
+
+    elif callable(model_type):
+        model = model_type()
+
     else:
         raise ValueError("'{}' is not a valid model".format(model_type))
 
@@ -119,6 +130,10 @@ def bayesian_optimization(objective_function, lower, upper, num_iterations=30, X
         a = PI(model)
     elif acquisition_func == "lcb":
         a = LCB(model)
+    elif isinstance(acquisition_func, BaseAcquisitionFunction):
+        a = acquisition_func
+    elif callable(acquisition_func):
+        a = acquisition_func(model)
     else:
         raise ValueError("'{}' is not a valid acquisition function"
                          .format(acquisition_func))
@@ -134,6 +149,10 @@ def bayesian_optimization(objective_function, lower, upper, num_iterations=30, X
         max_func = SciPyOptimizer(acquisition_func, lower, upper, rng=rng)
     elif maximizer == "differential_evolution":
         max_func = DifferentialEvolution(acquisition_func, lower, upper, rng=rng)
+    elif isinstance(maximizer, BaseMaximizer):
+        max_func = maximizer
+    elif callable(maximizer):
+        max_func = maximizer(acquisition_func, lower, upper, rng=rng)
     else:
         raise ValueError("'{}' is not a valid function to maximize the "
                          "acquisition function".format(maximizer))
